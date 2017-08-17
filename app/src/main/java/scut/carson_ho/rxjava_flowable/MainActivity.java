@@ -5,21 +5,20 @@ import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.widget.Button;
 
+import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 
-import io.reactivex.Observable;
-import io.reactivex.ObservableEmitter;
-import io.reactivex.ObservableOnSubscribe;
-import io.reactivex.Observer;
-import io.reactivex.android.schedulers.AndroidSchedulers;
-import io.reactivex.disposables.Disposable;
-import io.reactivex.schedulers.Schedulers;
+import io.reactivex.BackpressureStrategy;
+import io.reactivex.Flowable;
+import io.reactivex.FlowableEmitter;
+import io.reactivex.FlowableOnSubscribe;
 
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "Rxjava";
     private Button btn;
     private Subscription mSubscription;
+
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -27,54 +26,100 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
 
-        Observable.create(new ObservableOnSubscribe<Integer>() {
-            // 1. 创建被观察者 & 生产事件
-            @Override
-            public void subscribe(ObservableEmitter<Integer> emitter) throws Exception {
 
-                for (int i = 0; ; i++) {
-                    Log.d(TAG, "发送了事件"+ i );
-                    Thread.sleep(10);
-                    // 发送事件速度：10ms / 个
+
+        Flowable.create(new FlowableOnSubscribe<Integer>() {
+            @Override
+            public void subscribe(FlowableEmitter<Integer> emitter) throws Exception {
+
+                // 调用emitter.requested()获取当前观察者需要接收的事件数量
+                long n = emitter.requested();
+
+                Log.d(TAG, "观察者可接收事件" + n);
+
+                // 根据emitter.requested()的值，即当前观察者需要接收的事件数量来发送事件
+                for (int i = 0; i < n; i++) {
+                    Log.d(TAG, "发送了事件" + i);
                     emitter.onNext(i);
-
                 }
-
             }
-        }).subscribeOn(Schedulers.io()) // 设置被观察者在io线程中进行
-                .observeOn(AndroidSchedulers.mainThread()) // 设置观察者在主线程中进行
-             .subscribe(new Observer<Integer>() {
-            // 2. 通过通过订阅（subscribe）连接观察者和被观察者
+        }, BackpressureStrategy.ERROR)
+                .subscribe(new Subscriber<Integer>() {
+                    @Override
+                    public void onSubscribe(Subscription s) {
+                        Log.d(TAG, "onSubscribe");
 
-            @Override
-            public void onSubscribe(Disposable d) {
-                Log.d(TAG, "开始采用subscribe连接");
-            }
+                        // 设置观察者每次能接受10个事件
+                        s.request(10);
 
-            @Override
-            public void onNext(Integer value) {
+                    }
 
-                try {
-                    // 接收事件速度：5s / 个
-                    Thread.sleep(5000);
-                    Log.d(TAG, "接收到了事件"+ value  );
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
+                    @Override
+                    public void onNext(Integer integer) {
+                        Log.d(TAG, "接收到了事件" + integer);
+                    }
 
-            }
+                    @Override
+                    public void onError(Throwable t) {
+                        Log.w(TAG, "onError: ", t);
+                    }
 
-            @Override
-            public void onError(Throwable e) {
-                Log.d(TAG, "对Error事件作出响应");
-            }
+                    @Override
+                    public void onComplete() {
+                        Log.d(TAG, "onComplete");
+                    }
+                });
 
-            @Override
-            public void onComplete() {
-                Log.d(TAG, "对Complete事件作出响应");
-            }
 
-        });
+
+//        Observable.create(new ObservableOnSubscribe<Integer>() {
+//            // 1. 创建被观察者 & 生产事件
+//            @Override
+//            public void subscribe(ObservableEmitter<Integer> emitter) throws Exception {
+//
+//                for (int i = 0; ; i++) {
+//                    Log.d(TAG, "发送了事件"+ i );
+//                    Thread.sleep(10);
+//                    // 发送事件速度：10ms / 个
+//                    emitter.onNext(i);
+//
+//                }
+//
+//            }
+//        }).subscribeOn(Schedulers.io()) // 设置被观察者在io线程中进行
+//                .observeOn(AndroidSchedulers.mainThread()) // 设置观察者在主线程中进行
+//             .subscribe(new Observer<Integer>() {
+//            // 2. 通过通过订阅（subscribe）连接观察者和被观察者
+//
+//            @Override
+//            public void onSubscribe(Disposable d) {
+//                Log.d(TAG, "开始采用subscribe连接");
+//            }
+//
+//            @Override
+//            public void onNext(Integer value) {
+//
+//                try {
+//                    // 接收事件速度：5s / 个
+//                    Thread.sleep(5000);
+//                    Log.d(TAG, "接收到了事件"+ value  );
+//                } catch (InterruptedException e) {
+//                    e.printStackTrace();
+//                }
+//
+//            }
+//
+//            @Override
+//            public void onError(Throwable e) {
+//                Log.d(TAG, "对Error事件作出响应");
+//            }
+//
+//            @Override
+//            public void onComplete() {
+//                Log.d(TAG, "对Complete事件作出响应");
+//            }
+//
+//        });
 
 //        Flowable.interval(1, TimeUnit.MILLISECONDS)
 //                .onBackpressureBuffer() // 添加背压策略封装好的方法，此处选择Buffer模式，即缓存区大小无限制
