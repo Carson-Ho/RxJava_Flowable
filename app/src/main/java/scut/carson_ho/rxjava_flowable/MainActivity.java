@@ -27,48 +27,94 @@ public class MainActivity extends AppCompatActivity {
 
 
 
-
-        Flowable.create(new FlowableOnSubscribe<Integer>() {
+        Flowable<Integer> upstream = Flowable.create(new FlowableOnSubscribe<Integer>() {
             @Override
             public void subscribe(FlowableEmitter<Integer> emitter) throws Exception {
-
-                // 调用emitter.requested()获取当前观察者需要接收的事件数量
-                long n = emitter.requested();
-
-                Log.d(TAG, "观察者可接收事件" + n);
-
-                // 根据emitter.requested()的值，即当前观察者需要接收的事件数量来发送事件
-                for (int i = 0; i < n; i++) {
-                    Log.d(TAG, "发送了事件" + i);
-                    emitter.onNext(i);
-                }
+                emitter.onNext(1);
+                emitter.onNext(2);
+                emitter.onNext(3);
+                emitter.onComplete();
             }
-        }, BackpressureStrategy.ERROR)
-                .subscribe(new Subscriber<Integer>() {
-                    @Override
-                    public void onSubscribe(Subscription s) {
-                        Log.d(TAG, "onSubscribe");
+        }, BackpressureStrategy.ERROR);
+        // 需要传入背压参数BackpressureStrategy，下面会详细讲解
 
-                        // 设置观察者每次能接受10个事件
-                        s.request(10);
+        /**
+         * 步骤2：创建观察者 =  Subscriber
+         */
+        Subscriber<Integer> downstream = new Subscriber<Integer>() {
 
-                    }
+            @Override
+            public void onSubscribe(Subscription s) {
+                // 对比Observer传入的Disposable参数，Subscriber此处传入的参数 = Subscription
+                // 相同点：Subscription具备Disposable参数的作用，即Disposable.dispose()切断连接, 同样的调用Subscription.cancel()切断连接
+                // 不同点：Subscription增加了void request(long n)
+                Log.d(TAG, "onSubscribe");
+                s.request(Long.MAX_VALUE);
+                // 关于request()下面会继续详细说明
+            }
 
-                    @Override
-                    public void onNext(Integer integer) {
-                        Log.d(TAG, "接收到了事件" + integer);
-                    }
+            @Override
+            public void onNext(Integer integer) {
+                Log.d(TAG, "onNext: " + integer);
+            }
 
-                    @Override
-                    public void onError(Throwable t) {
-                        Log.w(TAG, "onError: ", t);
-                    }
+            @Override
+            public void onError(Throwable t) {
+                Log.w(TAG, "onError: ", t);
+            }
 
-                    @Override
-                    public void onComplete() {
-                        Log.d(TAG, "onComplete");
-                    }
-                });
+            @Override
+            public void onComplete() {
+                Log.d(TAG, "onComplete");
+            }
+        };
+
+        /**
+         * 步骤3：建立订阅关系
+         */
+        upstream.subscribe(downstream);
+
+//        Flowable.create(new FlowableOnSubscribe<Integer>() {
+//            @Override
+//            public void subscribe(FlowableEmitter<Integer> emitter) throws Exception {
+//
+//                // 调用emitter.requested()获取当前观察者需要接收的事件数量
+//                long n = emitter.requested();
+//
+//                Log.d(TAG, "观察者可接收事件" + n);
+//
+//                // 根据emitter.requested()的值，即当前观察者需要接收的事件数量来发送事件
+//                for (int i = 0; i < n; i++) {
+//                    Log.d(TAG, "发送了事件" + i);
+//                    emitter.onNext(i);
+//                }
+//            }
+//        }, BackpressureStrategy.ERROR)
+//                .subscribe(new Subscriber<Integer>() {
+//                    @Override
+//                    public void onSubscribe(Subscription s) {
+//                        Log.d(TAG, "onSubscribe");
+//
+//                        // 设置观察者每次能接受10个事件
+//                        s.request(10);
+//
+//                    }
+//
+//                    @Override
+//                    public void onNext(Integer integer) {
+//                        Log.d(TAG, "接收到了事件" + integer);
+//                    }
+//
+//                    @Override
+//                    public void onError(Throwable t) {
+//                        Log.w(TAG, "onError: ", t);
+//                    }
+//
+//                    @Override
+//                    public void onComplete() {
+//                        Log.d(TAG, "onComplete");
+//                    }
+//                });
 
 
 
